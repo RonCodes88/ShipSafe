@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ShipSafe - Zero Configuration Deployment",
-  description: "Deploy your projects with zero configuration using ShipSafe",
+  title: "ShipSafe",
+  description: "Protect your code from security vulnerabilities in real-time",
 };
 
 export default function RootLayout({
