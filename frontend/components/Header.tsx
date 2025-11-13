@@ -2,7 +2,7 @@
 
 import { Bell, Search, ChevronDown, Settings, LogOut, User } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import SyncButton from './SyncButton';
@@ -137,63 +137,74 @@ export function Header({ onSyncComplete }: HeaderProps) {
           )}
         </div>
 
-        {/* Sync Button */}
-        <SyncButton onSyncComplete={onSyncComplete} />
+        {/* Sync Button (authenticated only) */}
+        {session && <SyncButton onSyncComplete={onSyncComplete} />}
 
         {/* Notifications */}
         <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
           <Bell className="w-5 h-5 text-gray-600" />
         </button>
 
-        {/* User Menu */}
-        <div className="relative">
-          <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            {session?.user?.image ? (
-              <img 
-                src={session.user.image} 
-                alt="User avatar" 
-                className="w-8 h-8 rounded-full"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-gray-600" />
+        {/* Auth controls */}
+        {session ? (
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              {session.user?.image ? (
+                <img 
+                  src={session.user.image} 
+                  alt="User avatar" 
+                  className="w-8 h-8 rounded-full"
+                />
+              ) : (
+                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-gray-600" />
+                </div>
+              )}
+              <ChevronDown className="w-4 h-4 text-gray-600" />
+            </button>
+
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">
+                    {session.user?.name || session.user?.email || 'Account'}
+                  </p>
+                  {session.user?.email && (
+                    <p className="text-xs text-gray-500">
+                      {session.user.email}
+                    </p>
+                  )}
+                </div>
+                <a href="#" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <User className="w-4 h-4" />
+                  Profile
+                </a>
+                <a href="#" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </a>
+                <hr className="my-1 border-gray-200" />
+                <button 
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign out
+                </button>
               </div>
             )}
-            <ChevronDown className="w-4 h-4 text-gray-600" />
+          </div>
+        ) : (
+          <button
+            onClick={() => signIn('github')}
+            className="px-3 py-1.5 rounded-md text-sm border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Sign in
           </button>
-
-          {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-              <div className="px-4 py-2 border-b border-gray-100">
-                <p className="text-sm font-medium text-gray-900">
-                  {session?.user?.name || 'User'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {session?.user?.email || 'user@example.com'}
-                </p>
-              </div>
-              <a href="#" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                <User className="w-4 h-4" />
-                Profile
-              </a>
-              <a href="#" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                <Settings className="w-4 h-4" />
-                Settings
-              </a>
-              <hr className="my-1 border-gray-200" />
-              <button 
-                onClick={handleSignOut}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full text-left"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign out
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </header>
   );
