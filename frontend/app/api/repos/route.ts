@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { RepoDatabase } from '@/lib/database'
 import { authOptions } from '../auth/[...nextauth]/route'
+import { GitHubService } from '@/lib/github-service'
 
 export async function GET() {
   try {
@@ -11,15 +11,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get repositories from local JSON database
-    const repos = RepoDatabase.getAllRepos()
-    
-    if (repos.length === 0) {
-      return NextResponse.json({ 
-        error: 'No repositories found. Please sync your repositories first.',
-        shouldSync: true 
-      }, { status: 404 })
+    // Ensure we have an access token for the authenticated user
+    const accessToken = (session as any).accessToken
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Fetch repositories directly from GitHub for this user
+    const githubService = new GitHubService(accessToken)
+    const repos = await githubService.fetchAllRepositories()
 
     // Sort by most recently updated
     const sortedRepos = repos.sort((a, b) => 
