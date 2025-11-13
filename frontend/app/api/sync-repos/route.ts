@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { GitHubService } from '@/lib/github-service';
-import { RepoDatabase } from '@/lib/database';
 import { authOptions } from '../auth/[...nextauth]/route';
 
 export async function POST() {
@@ -20,20 +19,17 @@ export async function POST() {
     
     const githubService = new GitHubService(session.accessToken);
     
-    // Fetch all repositories from GitHub
+    // Fetch all repositories from GitHub (no persistence)
     const repositories = await githubService.fetchAllRepositories();
-    
-    // Save to local JSON database
-    RepoDatabase.saveRepos(repositories);
     
     // Also fetch user info for additional stats
     const userInfo = await githubService.getUserInfo();
     
-    console.log(`Sync completed: ${repositories.length} repositories saved`);
+    console.log(`Sync completed: ${repositories.length} repositories fetched`);
     
     return NextResponse.json({
       success: true,
-      message: `Successfully synced ${repositories.length} repositories`,
+      message: `Fetched ${repositories.length} repositories`,
       stats: {
         total_repos: repositories.length,
         public_repos: repositories.filter(r => !r.private).length,
@@ -55,9 +51,14 @@ export async function POST() {
 
 export async function GET() {
   try {
-    const repos = RepoDatabase.getAllRepos();
-    const lastSync = RepoDatabase.getLastSyncTime();
-    
+    const session: any = await getServerSession(authOptions);
+    if (!session?.accessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const githubService = new GitHubService(session.accessToken);
+    const repos = await githubService.fetchAllRepositories();
+    const userInfo = await githubService.getUserInfo();
+
     return NextResponse.json({
       repos,
       stats: {
@@ -65,7 +66,8 @@ export async function GET() {
         public_repos: repos.filter(r => !r.private).length,
         private_repos: repos.filter(r => r.private).length,
         archived_repos: repos.filter(r => r.archived).length,
-        last_sync: lastSync,
+        user_info: userInfo,
+        last_sync: new Date().toISOString(),
       }
     });
   } catch (error) {

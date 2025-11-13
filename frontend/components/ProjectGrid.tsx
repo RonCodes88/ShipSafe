@@ -239,7 +239,7 @@ export function ProjectGrid() {
 
             {/* Card Footer with Actions */}
             <div className="px-6 pb-6">
-              <div className="flex gap-3">
+              <div className="flex">
                 <a 
                   href={repo.html_url} 
                   target="_blank" 
@@ -249,10 +249,6 @@ export function ProjectGrid() {
                   <Github className="w-4 h-4" />
                   View Code
                 </a>
-                <button className="flex items-center justify-center gap-2 py-3 px-4 bg-black hover:bg-gray-800 text-white rounded-xl font-medium transition-all duration-200 text-sm hover:shadow-lg">
-                  <ExternalLink className="w-4 h-4" />
-                  Deploy
-                </button>
               </div>
             </div>
 
