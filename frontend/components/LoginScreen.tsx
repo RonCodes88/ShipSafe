@@ -20,7 +20,7 @@ export function LoginScreen() {
           </div>
           <h1 className="text-2xl font-bold text-black mb-2">ShipSafe</h1>
           <p className="text-gray-600 text-sm">
-            Deploy your projects with zero configuration
+            Don't let vulnerable code get into production
           </p>
         </div>
 
@@ -38,22 +38,22 @@ export function LoginScreen() {
           <div className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
             <div>
-              <p className="text-black font-medium">Zero Configuration</p>
-              <p>Import your Git repository and deploy instantly</p>
+              <p className="text-black font-medium">Connect with GitHub</p>
+              <p>Real-Time Scanning to catch security issues before deployment</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
             <div>
-              <p className="text-black font-medium">Automatic Deployments</p>
-              <p>Every push to your repository triggers a new deployment</p>
+              <p className="text-black font-medium">AI Agent Powered Detection</p>
+              <p>AI agents analyze your code with context to identify vulnerabilities instantly</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
             <div>
-              <p className="text-black font-medium">Global CDN</p>
-              <p>Your site is deployed to our global edge network</p>
+              <p className="text-black font-medium">Stop Breaches Early</p>
+              <p>Get immediate, actionable feedback to fix security issues before they reach production</p>
             </div>
           </div>
         </div>
