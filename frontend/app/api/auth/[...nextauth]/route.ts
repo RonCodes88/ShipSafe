@@ -16,6 +16,10 @@ export const authOptions = {
   session: {
     strategy: 'jwt' as const,
   },
+  // Allow anyone to sign in - no restrictions
+  pages: {
+    signIn: '/',
+  },
   callbacks: {
     async jwt({ token, account, profile }: any) {
       if (account && profile) {
