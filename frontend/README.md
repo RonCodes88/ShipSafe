@@ -2,7 +2,50 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install Dependencies
+
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+### 2. Set Up Environment Variables
+
+#### Create a GitHub OAuth App
+
+Each developer needs to create their own GitHub OAuth App:
+
+1. Go to https://github.com/settings/developers
+2. Click "New OAuth App"
+3. Fill in the form:
+   - **Application name**: `ShipSafe` (or your choice)
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:3000/api/auth/callback/github`
+4. Click "Register application"
+5. Copy the **Client ID** and generate a new **Client Secret**
+
+#### Create `.env.local` File
+
+Create a `.env.local` file in the `frontend/` directory with the following variables:
+
+```bash
+# GitHub OAuth Configuration
+# Get these from your GitHub OAuth App: https://github.com/settings/developers
+GITHUB_CLIENT_ID=your_github_client_id_here
+GITHUB_CLIENT_SECRET=your_github_client_secret_here
+
+# NextAuth Configuration
+# Generate a random secret: openssl rand -base64 32
+NEXTAUTH_SECRET=your_nextauth_secret_here
+NEXTAUTH_URL=http://localhost:3000
+```
+
+**Note**: Each developer should generate their own `NEXTAUTH_SECRET` using `openssl rand -base64 32`
+
+### 3. Run the Development Server
 
 ```bash
 npm run dev
