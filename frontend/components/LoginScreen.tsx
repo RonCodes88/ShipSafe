@@ -52,7 +52,7 @@ export function LoginScreen() {
           <div className="flex items-start gap-3">
             <div className="w-1.5 h-1.5 bg-black rounded-full mt-2 flex-shrink-0"></div>
             <div>
-              <p className="text-black font-medium">Stop Breach Early</p>
+              <p className="text-black font-medium">Stop Breaches Early</p>
               <p>Get immediate, actionable feedback to fix security issues before they reach production</p>
             </div>
           </div>
