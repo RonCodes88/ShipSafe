@@ -4,31 +4,31 @@ from typing import Dict, Any
 from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import to_toon
-from transformers import RobertaTokenizer, RobertaForSequenceClassification
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 from utils.tree_parser import extract_functions, get_language_parser
 
-tokenizer = RobertaTokenizer.from_pretrained("microsoft/codebert-base")
-codebert_model = RobertaForSequenceClassification.from_pretrained(
-    "microsoft/codebert-base", num_labels=2
-)
-codebert_model.eval()
+
+tokenizer = AutoTokenizer.from_pretrained('mrm8488/codebert-base-finetuned-detect-insecure-code')
+model = AutoModelForSequenceClassification.from_pretrained('mrm8488/codebert-base-finetuned-detect-insecure-code')
 
 class CodeScannerAgent(BaseAgent):
 
-    async def predict_defect(self, code: str) -> float:
+    async def predict_defect(code_snippet: str):
         inputs = tokenizer(
-            code,
+            code_snippet,
             return_tensors="pt",
             truncation=True,
-            padding=True,
+            padding="max_length",
             max_length=512
         )
-        with torch.no_grad():
-            logits = codebert_model(**inputs).logits
-            probs = torch.softmax(logits, dim=1)
 
-        return probs[0][1].item()
+        with torch.no_grad():
+            logits = model(**inputs).logits
+            probs = torch.softmax(logits, dim=1)
+            insecure_prob = probs[0][1].item()
+
+        return insecure_prob
 
 
     async def _execute(self, state: ScanState) -> Dict[str, Any]:
