@@ -135,23 +135,7 @@ public class App {
 }
 
 
-for f in repo_metadata["files"]:
-    print("\n=====================================")
-    print(f"Testing file: {f['path']}")
-    print("=====================================")
 
-    code = f["content"]
-    ext = f["path"].split(".")[-1]
-
-    parser = get_language_parser(ext)
-    units = extract_functions(code, parser, ext)
-
-    print(f"Found {len(units)} code units:")
-    
-    for u in units:
-        print(f"- {u['type']} (lines {u['start']}–{u['end']})")
-        print(u["code"])
-        print("-------------------------------------")
 
 
 

@@ -62,7 +62,6 @@ class CodeScannerAgent(BaseAgent):
 
                     vulnerabilities.append(vuln)
 
-        # Append instead of overwrite
         state["vulnerabilities"] += vulnerabilities
         state["agent_trace"].append("code_scanner")
 
