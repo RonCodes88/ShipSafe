@@ -1,6 +1,6 @@
 """Context Enrichment Agent - Semantic understanding and context enhancement with ReAct."""
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import parse_toon, to_toon
@@ -8,10 +8,28 @@ import requests
 from langchain_anthropic import ChatAnthropic
 from langchain.agents import create_agent
 from langchain.tools import tool
-from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
+from pydantic import BaseModel
 
+class CVEMatch(BaseModel):
+    cve_id: str
+    description: str
+    cvss: Optional[float]
+
+class EnrichedOutput(BaseModel):
+    category: str
+    summary: str
+
+    attack_vector: str
+    attack_complexity: str
+    privileges_required: str
+    user_interaction: str
+
+    impact_confidentiality: str
+    impact_integrity: str
+    impact_availability: str
+
+    cvss_score: float
+    cve_matches: List[CVEMatch]
 
 class ContextEnricherAgent(BaseAgent):
     """
@@ -123,7 +141,6 @@ class ContextEnricherAgent(BaseAgent):
                 "PHYSICAL": 0.20
             }.get(attack_vector.upper(), 0.55)
 
-            # Impact multipliers
             imp_map = {"NONE": 0.0, "LOW": 0.22, "HIGH": 0.56}
 
             conf = imp_map.get(impact_conf.upper(), 0)
@@ -132,9 +149,7 @@ class ContextEnricherAgent(BaseAgent):
 
             impact_subscore = 1 - ((1 - conf) * (1 - integ) * (1 - avail))
 
-            # Rough CVSS approximation formula
             cvss = round(min(10.0, av_score * 3.5 + impact_subscore * 6.5), 1)
-
             return cvss
 
         return [estimate_cvss, search_cve]
@@ -165,7 +180,8 @@ Your responsibilities:
      - Use CWE if present
      - Use CVSS if present
      - Use these to improve your classification and reasoning
-
+   - Call `estimate_cvss` if `search_cve` does not return a CVSS if needed. 
+    
 3. **Attack Vector Analysis (CVSS Exploitability)**
    Infer the following fields:
    - attack_vector: One of ["NETWORK", "ADJACENT", "LOCAL", "PHYSICAL"]
@@ -227,22 +243,15 @@ Rules:
         agent = create_agent(
             llm=self.llm,
             tools=self.tools,
-            prompt=prompt
+            prompt=prompt,
+            response_format=EnrichedOutput
         )
     
-        
         return agent
     
     async def _enrich_vulnerability(self, vuln_data: Dict[str, Any], state: ScanState) -> Dict[str, Any]:
         """
-        Use ReAct agent to enrich a single vulnerability.
-        
-        Args:
-            vuln_data: Parsed TOON vulnerability data
-            state: Current scan state with repo metadata and file contents
-            
-        Returns:
-            Enriched vulnerability data
+        Enrich a vulnerability using structured LLM output (EnrichedOutput).
         """
         vuln_type = vuln_data.get("vuln", "UNKNOWN")
         severity = vuln_data.get("sev", "MEDIUM")
@@ -250,110 +259,115 @@ Rules:
         line_range = vuln_data.get("ln", "unknown")
         ml_prob = vuln_data.get("prob", "N/A")
         code_type = vuln_data.get("type", "unknown")
-        
-        # Extract actual code snippet from repo metadata
+
         code_snippet = self._get_code_snippet(state, file_path, line_range)
-        
-        # Create enrichment prompt for the agent with actual code context
+
         prompt = f"""
-        Analyze this vulnerability detected by ML model and provide enrichment data:
-        
-        VULNERABILITY DETAILS:
-        - Vulnerability Type: {vuln_type}
-        - Severity: {severity}
-        - File: {file_path}
-        - Line Range: {line_range}
-        - ML Detection Probability: {ml_prob}
-        - Code Unit Type: {code_type}
-        
-        CODE SNIPPET:
-        {code_snippet}
-        
-        Use the available tools to:
-        1. Search for CVE information related to this vulnerability pattern
-        2. Analyze the attack vector characteristics based on the actual code
-        3. Calculate the CVSS score considering the context
-        4. Assess the business impact and exploitability given the code implementation
-        
-        Provide a comprehensive analysis with specific metrics and explain how this code pattern is vulnerable.
-        """
-        
+Analyze the following vulnerability and return ONLY structured JSON matching the EnrichedOutput schema.
+
+VULNERABILITY DETAILS:
+- Type: {vuln_type}
+- Severity: {severity}
+- File: {file_path}
+- Line Range: {line_range}
+- ML Probability: {ml_prob}
+- Code Type: {code_type}
+
+CODE SNIPPET:
+{code_snippet}
+
+Use tools when helpful:
+- search_cve(): find similar vulnerabilities and pull CVE metadata
+- estimate_cvss(): estimate CVSS score if CVE does not provide one
+
+Return only JSON. No explanations.
+    """
         try:
-            # Invoke the agent
-            result = await self.agent.ainvoke({"input": prompt})
-            
-            # Parse agent output to extract enrichment data
-            output = result.get("output", "")
-            
-            # Extract structured data from output (simplified parsing)
+            result = await self.agent.ainvoke({
+                "messages": [{"role": "user", "content": prompt}]
+            })
+
+            enriched: EnrichedOutput = result["response"]
+
+            # Merge results
             enriched_data = {
-                **vuln_data,
-                "impact": "high" if "high" in output.lower() else "medium",
-                "exploitability": "high" if "exploitability: high" in output.lower() else "medium",
-                "cvss_score": self._extract_cvss(output),
-                "attack_vector": self._extract_attack_vector(output),
-                "enrichment_details": output[:500],  # First 500 chars of analysis
-                "code_context": code_snippet[:200] if code_snippet else "N/A"  # Include code context
+                **vuln_data,                 # original TOON fields
+                **enriched.model_dump(),     # structured enrichment fields
+                "code_context": code_snippet # useful for UI/debugging
             }
-            
+
             return enriched_data
-            
+
         except Exception as e:
-            self.logger.error(f"Error enriching vulnerability: {e}")
-            # Return with default enrichment on error
+            self.logger.error(f"Error enriching vulnerability: {e}", exc_info=True)
+            # Safe fallback structure
             return {
                 **vuln_data,
-                "impact": "medium",
-                "exploitability": "medium",
-                "cvss_score": "5.0",
+                "category": "Unknown",
+                "summary": "Analysis failed.",
+                "attack_vector": "LOCAL",
+                "attack_complexity": "LOW",
+                "privileges_required": "NONE",
+                "user_interaction": "NONE",
+                "impact_confidentiality": "LOW",
+                "impact_integrity": "LOW",
+                "impact_availability": "LOW",
+                "cvss_score": 0.0,
+                "cve_matches": [],
+                "code_context": code_snippet,
             }
     
     async def _enrich_secret(self, secret_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Use ReAct agent to enrich a secret finding.
-        
-        Args:
-            secret_data: Parsed TOON secret data
-            
-        Returns:
-            Enriched secret data
+        Enrich a secret using the same EnrichedOutput structured schema.
         """
         secret_type = secret_data.get("secret", "UNKNOWN")
         severity = secret_data.get("sev", "HIGH")
-        
+
         prompt = f"""
-        Analyze this hardcoded secret and assess the risk:
-        - Secret Type: {secret_type}
-        - Severity: {severity}
-        
-        Assess:
-        1. The exposure risk level
-        2. Potential business impact
-        3. Exploitability if exposed
-        4. Recommended remediation priority
-        """
-        
+Analyze the following hardcoded secret and return ONLY structured JSON
+matching the EnrichedOutput schema.
+
+SECRET DETAILS:
+- Type: {secret_type}
+- Severity: {severity}
+
+Treat this as a security vulnerability.
+Populate cve_matches as an empty list if irrelevant.
+Return only JSON.
+"""
+
         try:
-            result = await self.agent.ainvoke({"input": prompt})
-            output = result.get("output", "")
-            
+            result = await self.agent.ainvoke({
+                "messages": [{"role": "user", "content": prompt}]
+            })
+
+            enriched: EnrichedOutput = result["response"]
+
             enriched_data = {
                 **secret_data,
-                "risk": "critical" if secret_type in ["AWS_KEY", "API_KEY"] else "high",
-                "exposure": "public",
-                "business_impact": "high",
-                "enrichment_details": output[:500]
+                **enriched.model_dump(),
             }
-            
+
             return enriched_data
-            
+
         except Exception as e:
-            self.logger.error(f"Error enriching secret: {e}")
+            self.logger.error(f"Error enriching secret: {e}", exc_info=True)
             return {
                 **secret_data,
-                "risk": "high",
-                "exposure": "public",
+                "category": "Hardcoded Secret",
+                "summary": "Analysis failed.",
+                "attack_vector": "LOCAL",
+                "attack_complexity": "LOW",
+                "privileges_required": "NONE",
+                "user_interaction": "NONE",
+                "impact_confidentiality": "LOW",
+                "impact_integrity": "LOW",
+                "impact_availability": "LOW",
+                "cvss_score": 0.0,
+                "cve_matches": [],
             }
+
     
     def _get_code_snippet(self, state: ScanState, file_path: str, line_range: str) -> str:
         """
@@ -399,27 +413,6 @@ Rules:
         except Exception as e:
             self.logger.error(f"Error extracting code snippet: {e}")
             return "Code snippet extraction failed"
-    
-    def _extract_cvss(self, text: str) -> str:
-        """Extract CVSS score from agent output."""
-        # Simple regex-like extraction
-        if "cvss" in text.lower():
-            parts = text.lower().split("cvss")
-            if len(parts) > 1:
-                score_part = parts[1][:20]
-                import re
-                match = re.search(r'\d+\.\d+', score_part)
-                if match:
-                    return match.group(0)
-        return "5.0"
-    
-    def _extract_attack_vector(self, text: str) -> str:
-        """Extract attack vector from agent output."""
-        vectors = ["Network", "Adjacent", "Local", "Physical"]
-        for vector in vectors:
-            if vector.lower() in text.lower():
-                return vector
-        return "Network"
     
     async def _execute(self, state: ScanState) -> Dict[str, Any]:
         """
