@@ -59,4 +59,4 @@ def search_cve(keyword: str, limit: int = 5):
         return [{"error": str(e)}]
 
 
-print(search_cve("XSS")[0])
+print(search_cve("deserialization pickle.load"))
