@@ -4,62 +4,68 @@ from typing import Dict, Any
 from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import to_toon
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+from utils.tree_parser import extract_functions, get_language_parser
 
+
+tokenizer = AutoTokenizer.from_pretrained('mrm8488/codebert-base-finetuned-detect-insecure-code')
+model = AutoModelForSequenceClassification.from_pretrained('mrm8488/codebert-base-finetuned-detect-insecure-code')
 
 class CodeScannerAgent(BaseAgent):
-    """
-    Code Scanning Agent detects security vulnerabilities in code.
-    
-    Responsibilities:
-    - Ingest code files from GitHub repositories
-    - Invoke CodeBERT model for vulnerability identification
-    - Detect insecure coding practices and anomalous patterns
-    - Extract vulnerability metadata (type, severity, location, code snippet)
-    - Output results in TOON format
-    """
-    
-    def __init__(self, config: AgentConfig = None):
-        super().__init__(config)
-    
+
+    async def predict_defect(self, code_snippet: str):
+        inputs = tokenizer(
+            code_snippet,
+            return_tensors="pt",
+            truncation=True,
+            padding="max_length",
+            max_length=512
+        )
+
+        with torch.no_grad():
+            logits = model(**inputs).logits
+            probs = torch.softmax(logits, dim=1)
+            insecure_prob = probs[0][1].item()
+
+        return insecure_prob
+
+
     async def _execute(self, state: ScanState) -> Dict[str, Any]:
-        """
-        Scan code for security vulnerabilities.
-        
-        Args:
-            state: Current scan state
-            
-        Returns:
-            Dictionary with vulnerabilities in TOON format
-        """
-        repo_metadata = state.get("repo_metadata", {})
-        repo_name = repo_metadata.get("name", "unknown")
-        
+        repo_name = state["repo_metadata"].get("name", "unknown")
         self.logger.info(f"Scanning code for vulnerabilities in: {repo_name}")
-        
-        # TODO: Implement CodeBERT integration
-        # TODO: Fetch code files from GitHub
-        # TODO: Analyze files for vulnerabilities
-        
-        # Placeholder vulnerabilities in TOON format
+
         vulnerabilities = []
-        
-        # Example TOON format vulnerability
-        # vuln:SQL_INJ|sev:HIGH|file:auth.py|ln:45-47|type:unsanitized_input
-        example_vuln = to_toon({
-            "vuln": "SQL_INJ",
-            "sev": "HIGH",
-            "file": "example/auth.py",
-            "ln": "45-47",
-            "type": "unsanitized_input"
-        })
-        
-        # Uncomment to add example vulnerability
-        # vulnerabilities.append(example_vuln)
-        
-        self.logger.info(f"Found {len(vulnerabilities)} vulnerabilities")
-        
+
+        for f in state["repo_metadata"]["files"]:
+            path = f["path"]
+            code = f["content"]
+            ext = path.split(".")[-1]
+
+            parser = get_language_parser(ext)
+            units = extract_functions(code, parser, ext)
+
+            for u in units:
+                score = await self.predict_defect(u["code"])
+
+                if score > 0.55:
+                    severity = "HIGH" if score > 0.8 else "MEDIUM"
+
+                    vuln = to_toon({
+                        "vuln": "ML_DEFECT",
+                        "sev": severity,
+                        "file": path,
+                        "ln": f"{u['start']}-{u['end']}",
+                        "prob": round(score, 3),
+                        "type": u["type"]
+                    })
+
+                    vulnerabilities.append(vuln)
+
+        state["vulnerabilities"] += vulnerabilities
+        state["agent_trace"].append("code_scanner")
+
         return {
             "vulnerabilities": vulnerabilities,
             "status": "code_scan_complete",
         }
-

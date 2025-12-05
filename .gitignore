@@ -1,2 +1,5 @@
 .venv
 .cursorrules
+/backend/venv
+.env
+__pycache__/
