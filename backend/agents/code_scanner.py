@@ -14,7 +14,7 @@ model = AutoModelForSequenceClassification.from_pretrained('mrm8488/codebert-bas
 
 class CodeScannerAgent(BaseAgent):
 
-    async def predict_defect(code_snippet: str):
+    async def predict_defect(self, code_snippet: str):
         inputs = tokenizer(
             code_snippet,
             return_tensors="pt",

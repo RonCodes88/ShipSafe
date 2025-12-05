@@ -2,49 +2,11 @@
 
 from langgraph.graph import StateGraph, END
 from .state import ScanState
-from agents import (
-    OrchestratorAgent,
-    CodeScannerAgent,
-    SecretDetectorAgent,
-    ContextEnricherAgent,
-    RemediationAgent,
-)
 
-
-# Initialize agents
-orchestrator = OrchestratorAgent()
-code_scanner = CodeScannerAgent()
-secret_detector = SecretDetectorAgent()
-context_enricher = ContextEnricherAgent()
-remediation = RemediationAgent()
-
-
-async def orchestrator_node(state: ScanState) -> ScanState:
-    """Orchestrator agent node."""
-    return await orchestrator.process(state)
-
-
-async def code_scanner_node(state: ScanState) -> ScanState:
-    """Code scanning agent node."""
-    return await code_scanner.process(state)
-
-
-async def secret_detector_node(state: ScanState) -> ScanState:
-    """Secret detection agent node."""
-    return await secret_detector.process(state)
-
-
-async def context_enricher_node(state: ScanState) -> ScanState:
-    """Context enrichment agent node."""
-    return await context_enricher.process(state)
-
-
-async def remediation_node(state: ScanState) -> ScanState:
-    """Remediation agent node."""
-    return await remediation.process(state)
 
 
 def create_scan_workflow():
+    
     """
     Create the vulnerability scanning workflow using LangGraph.
     
@@ -56,6 +18,45 @@ def create_scan_workflow():
         Compiled StateGraph ready for execution
     """
     # Create the state graph
+    from backend.agents.orchestrator import OrchestratorAgent
+    from backend.agents.code_scanner import CodeScannerAgent
+    from backend.agents.secret_detector import SecretDetectorAgent
+    from backend.agents.context_enricher import ContextEnricherAgent
+    from backend.agents.remediation import RemediationAgent
+
+
+    # Initialize agents
+    orchestrator = OrchestratorAgent()
+    code_scanner = CodeScannerAgent()
+    secret_detector = SecretDetectorAgent()
+    context_enricher = ContextEnricherAgent()
+    remediation = RemediationAgent()
+
+
+    async def orchestrator_node(state: ScanState) -> ScanState:
+        """Orchestrator agent node."""
+        return await orchestrator.process(state)
+
+
+    async def code_scanner_node(state: ScanState) -> ScanState:
+        """Code scanning agent node."""
+        return await code_scanner.process(state)
+
+
+    async def secret_detector_node(state: ScanState) -> ScanState:
+        """Secret detection agent node."""
+        return await secret_detector.process(state)
+
+
+    async def context_enricher_node(state: ScanState) -> ScanState:
+        """Context enrichment agent node."""
+        return await context_enricher.process(state)
+
+
+    async def remediation_node(state: ScanState) -> ScanState:
+        """Remediation agent node."""
+        return await remediation.process(state)
+    
     workflow = StateGraph(ScanState)
     
     # Add all agent nodes

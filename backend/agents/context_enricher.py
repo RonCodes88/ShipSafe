@@ -5,10 +5,14 @@ from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import parse_toon, to_toon
 import requests
-from langchain_anthropic import ChatAnthropic
+import json
 from langchain.agents import create_agent
 from langchain.tools import tool
 from pydantic import BaseModel
+from dotenv import load_dotenv
+load_dotenv()
+from langchain_openai import ChatOpenAI
+
 
 class CVEMatch(BaseModel):
     cve_id: str
@@ -45,9 +49,9 @@ class ContextEnricherAgent(BaseAgent):
     def __init__(self, config: AgentConfig = None):
         super().__init__(config)
         
-        # Initialize LLM
-        self.llm = ChatAnthropic(
-            model="claude-sonnet-4-20250514",
+
+        self.llm = ChatOpenAI(
+            model="gpt-4o-mini",
             temperature=0
         )
         
@@ -241,9 +245,9 @@ Rules:
         
         # Create the agent
         agent = create_agent(
-            llm=self.llm,
+            model=self.llm,
             tools=self.tools,
-            prompt=prompt,
+            system_prompt=prompt,
             response_format=EnrichedOutput
         )
     
@@ -287,22 +291,13 @@ Return only JSON. No explanations.
                 "messages": [{"role": "user", "content": prompt}]
             })
 
-            enriched: EnrichedOutput = result["response"]
-
-            # Merge results
-            enriched_data = {
-                **vuln_data,                 # original TOON fields
-                **enriched.model_dump(),     # structured enrichment fields
-                "code_context": code_snippet # useful for UI/debugging
-            }
-
-            return enriched_data
+            enriched_model = result["structured_response"]
+            return enriched_model.model_dump()
 
         except Exception as e:
             self.logger.error(f"Error enriching vulnerability: {e}", exc_info=True)
             # Safe fallback structure
             return {
-                **vuln_data,
                 "category": "Unknown",
                 "summary": "Analysis failed.",
                 "attack_vector": "LOCAL",
@@ -342,13 +337,9 @@ Return only JSON.
                 "messages": [{"role": "user", "content": prompt}]
             })
 
-            enriched: EnrichedOutput = result["response"]
 
-            enriched_data = {
-                **secret_data,
-                **enriched.model_dump(),
-            }
-
+            enriched_model = result["structured_response"]
+            return enriched_model.model_dump()
             return enriched_data
 
         except Exception as e:
