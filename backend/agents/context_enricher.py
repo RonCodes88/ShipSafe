@@ -19,6 +19,8 @@ class CVEMatch(BaseModel):
     description: str
     cvss: Optional[float]
 
+
+
 class EnrichedOutput(BaseModel):
     category: str
     summary: str
@@ -340,7 +342,6 @@ Return only JSON.
 
             enriched_model = result["structured_response"]
             return enriched_model.model_dump()
-            return enriched_data
 
         except Exception as e:
             self.logger.error(f"Error enriching secret: {e}", exc_info=True)
