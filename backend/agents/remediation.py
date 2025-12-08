@@ -2,9 +2,7 @@ from typing import Dict, Any
 from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import parse_toon, to_toon
-from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
-import re
 from pydantic import BaseModel
 from langchain.agents import create_agent
 
@@ -162,20 +160,46 @@ Do not modify unrelated parts of the file.
         vuln_patches = []
 
         # Generate patches for vulnerabilities
-        for vuln_toon in enriched_vulns:
-            data = parse_toon(vuln_toon)
-            patches = await self._generate_patch(data)
-            vuln_patches.append(to_toon(patches))
+        for i, vuln_toon in enumerate(enriched_vulns):
+            enriched_data = parse_toon(vuln_toon)
+            self.logger.debug(f"Vuln {i} enriched_data file field: {enriched_data.get('file')}")
+            
+            # Get original vulnerability data (with file/line info)
+            original_vuln = parse_toon(code_scanner_vulns[i]) if i < len(code_scanner_vulns) else {}
+            self.logger.debug(f"Vuln {i} original_vuln file field: {original_vuln.get('file')}")
+
+            patches = await self._generate_patch(enriched_data)
+
+            # Merge enriched data, patches, and original file/line metadata
+            combined = {
+                **enriched_data,
+                **patches,
+                "file": original_vuln.get("file", enriched_data.get("file", "unknown")),
+                "ln": original_vuln.get("ln", enriched_data.get("ln", "")),
+            }
+            self.logger.debug(f"Vuln {i} combined file field: {combined.get('file')}")
+            vuln_patches.append(to_toon(combined))
 
         secret_patches = []
-        for sec_toon in enriched_secrets:
+        code_scanner_secrets = state.get("secrets", [])
+        
+        for i, sec_toon in enumerate(enriched_secrets):
             sec = parse_toon(sec_toon)
+            self.logger.debug(f"Secret {i} enriched file field: {sec.get('file')}")
+            
+            # Get original secret data (with file/line info)
+            original_secret = parse_toon(code_scanner_secrets[i]) if i < len(code_scanner_secrets) else {}
+            self.logger.debug(f"Secret {i} original file field: {original_secret.get('file')}")
 
             record = {
                 **sec,
                 "fix_type": "remove_secret",
-                "recommendation": "Move the secret to environment variables or a secure storage system."
+                "recommendation": "Move the secret to environment variables or a secure storage system.",
+                # Ensure file and ln are preserved from original if not in enriched
+                "file": sec.get("file", original_secret.get("file", "unknown")),
+                "ln": sec.get("ln", original_secret.get("ln", "")),
             }
+            self.logger.debug(f"Secret {i} final file field: {record.get('file')}")
 
             secret_patches.append(to_toon(record))
 
