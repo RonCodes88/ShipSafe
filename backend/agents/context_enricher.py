@@ -1,23 +1,21 @@
 """Context Enrichment Agent - Semantic understanding and context enhancement with ReAct."""
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import parse_toon, to_toon
-import requests
-import json
 from langchain.agents import create_agent
-from langchain.tools import tool
+# from langchain.tools import tool
 from pydantic import BaseModel
 from dotenv import load_dotenv
 load_dotenv()
 from langchain_openai import ChatOpenAI
 
 
-class CVEMatch(BaseModel):
-    cve_id: str
-    description: str
-    cvss: Optional[float]
+# class CVEMatch(BaseModel):
+#     cve_id: str
+#     description: str
+#     cvss: Optional[float]
 
 
 
@@ -34,8 +32,8 @@ class EnrichedOutput(BaseModel):
     impact_integrity: str
     impact_availability: str
 
-    cvss_score: float
-    cve_matches: List[CVEMatch]
+    # cvss_score: float
+    # cve_matches: List[CVEMatch]
 
 class ContextEnricherAgent(BaseAgent):
     """
@@ -56,199 +54,100 @@ class ContextEnricherAgent(BaseAgent):
             model="gpt-4o-mini",
             temperature=0
         )
-        
-        # Initialize tools
-        self.tools = self._create_tools()
-        
-        # Create the ReAct agent
+
         self.agent = self._create_agent()
-    
-    def _create_tools(self):
-        """Create tools for the ReAct agent."""
-        
 
-        NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
-
-        @tool
-        def search_cve(keyword: str, limit: int = 5):
-            """
-            Search NVD CVE database using keyword.
-            Returns top matches with CVE ID + description + CVSS if present.
-            """
-
-            params = {
-                "keywordSearch": keyword,
-                "resultsPerPage": limit,
-            }
-
-            try:
-                r = requests.get(NVD_API, params=params, timeout=5)
-                data = r.json()
-
-                results = []
-
-                for item in data.get("vulnerabilities", []):
-                    cve = item["cve"]
-                    cve_id = cve["id"]
-
-                    description = cve["descriptions"][0]["value"]
-
-                    cvss = None
-                    if "metrics" in cve:
-                        cvss_data = cve["metrics"].get("cvssMetricV31") or cve["metrics"].get("cvssMetricV30")
-                        if cvss_data:
-                            cvss = cvss_data[0]["cvssData"]["baseScore"]
-
-                    cwe = None
-
-                    if "weaknesses" in cve:
-                        try:
-                            cwe = cve["weaknesses"][0]["description"][0]["value"]
-                        except Exception:
-                            pass
-
-                    if not cwe:
-                        try:
-                            cwe = cve["problemtype"]["problemtype_data"][0]["description"][0]["value"]
-                        except Exception:
-                            pass
-
-
-                    results.append({
-                        "cve_id": cve_id,
-                        "description": description,
-                        "cwe": cwe,
-                        "cvss": cvss
-                    })
-
-                return results
-
-            except Exception as e:
-                return [{"error": str(e)}]
-
-        @tool
-        def estimate_cvss(attack_vector: str, impact_conf: str, impact_integ: str, impact_avail: str) -> float:
-            """
-            Estimate CVSS score when official CVSS is missing.
-            Returns a number between 0.0 and 10.0.
-
-            Inputs:
-            - attack_vector: NETWORK, ADJACENT, LOCAL, PHYSICAL
-            - impact_conf: NONE, LOW, HIGH
-            - impact_integ: NONE, LOW, HIGH
-            - impact_avail: NONE, LOW, HIGH
-            """
-
-            # Base scores for attack vectors
-            av_score = {
-                "NETWORK": 0.85,
-                "ADJACENT": 0.62,
-                "LOCAL": 0.55,
-                "PHYSICAL": 0.20
-            }.get(attack_vector.upper(), 0.55)
-
-            imp_map = {"NONE": 0.0, "LOW": 0.22, "HIGH": 0.56}
-
-            conf = imp_map.get(impact_conf.upper(), 0)
-            integ = imp_map.get(impact_integ.upper(), 0)
-            avail = imp_map.get(impact_avail.upper(), 0)
-
-            impact_subscore = 1 - ((1 - conf) * (1 - integ) * (1 - avail))
-
-            cvss = round(min(10.0, av_score * 3.5 + impact_subscore * 6.5), 1)
-            return cvss
-
-        return [estimate_cvss, search_cve]
     
     def _create_agent(self):
         """Create the ReAct agent with tools."""
-        prompt = """You are the **ShipSafe Context Enrichment Agent**, an advanced security
-analysis system that enriches raw vulnerability findings with deeper
-context, semantics, and exploit reasoning.
+        prompt = """
+You are the ShipSafe Context Enrichment Agent.
+
+Your mission is to transform raw vulnerability findings into enriched,
+semantically accurate security assessments.
 
 You receive:
-- A code snippet or vulnerability description
-- Metadata (file path, ML probability, type)
-- Optional CVE search results from the `search_cve` tool
+- A code snippet (if available)
+- Metadata including file path, severity, detector signals, and ML probability
 
-Your responsibilities:
+Your job:
 
-1. **Understand the vulnerability**
-   - Identify the most likely vulnerability category (e.g., SQL injection,
-     command injection, deserialization, weak crypto, insecure randomness,
-     hardcoded secrets, XSS, path traversal, SSRF, RCE, etc.)
-   - Summarize the root cause clearly.
+============================================================
+1. CLASSIFY THE VULNERABILITY
+============================================================
+Determine the most accurate security category such as:
+- SQL Injection
+- Command Injection
+- Remote Code Execution (RCE)
+- Path Traversal
+- Hardcoded Secrets
+- Insecure Randomness
+- Weak Cryptography
+- XSS
+- SSRF
+- Deserialization
+- Authorization Bypass
+- Others (use best judgment)
 
-2. **Use tools when helpful**
-   - Call `search_cve` with useful keywords related to the vulnerability.
-   - Interpret the returned CVE data:
-     - Use description text
-     - Use CWE if present
-     - Use CVSS if present
-     - Use these to improve your classification and reasoning
-   - Call `estimate_cvss` if `search_cve` does not return a CVSS if needed. 
-    
-3. **Attack Vector Analysis (CVSS Exploitability)**
-   Infer the following fields:
-   - attack_vector: One of ["NETWORK", "ADJACENT", "LOCAL", "PHYSICAL"]
-   - attack_complexity: ["LOW", "HIGH"]
-   - privileges_required: ["NONE", "LOW", "HIGH"]
-   - user_interaction: ["NONE", "REQUIRED"]
+Output a concise root-cause summary explaining *what the bug is* and
+*why it is dangerous*.
 
-   Base these on:
-   - How the code receives input
-   - Whether untrusted input reaches dangerous functions
-   - Code context such as web handlers, APIs, CLI tools, file I/O, etc.
-   - Any signals from CVE descriptions
+============================================================
+2. EXPLOITABILITY ANALYSIS (CVSS-style reasoning)
+============================================================
+Infer these fields using only the code and metadata:
 
-4. **Impact Assessment (CIA Triad)**
-   Infer the likely impact if exploited:
-   - Confidentiality impact: ["NONE", "LOW", "HIGH"]
-   - Integrity impact: ["NONE", "LOW", "HIGH"]
-   - Availability impact: ["NONE", "LOW", "HIGH"]
+- attack_vector: ["NETWORK", "ADJACENT", "LOCAL", "PHYSICAL"]
+- attack_complexity: ["LOW", "HIGH"]
+- privileges_required: ["NONE", "LOW", "HIGH"]
+- user_interaction: ["NONE", "REQUIRED"]
 
-5. **Severity & CVSS Estimation**
-   - If CVSS score is provided from CVEs, use it.
-   - If not, estimate CVSS based on your exploitability + impact reasoning.
-   Provide a numeric CVSS score between 0.0 and 10.0.
+Use reasoning based on:
+- How input reaches the vulnerable code
+- Whether exploitation requires user action or privileges
+- Whether the vulnerability is reachable remotely, locally, etc.
 
-6. **Remediation Guidance**
-   - Provide one short, actionable recommendation to fix the issue.
+============================================================
+3. IMPACT ANALYSIS (CIA TRIAD)
+============================================================
+Determine realistic impact values:
 
-7. **Output Structured JSON Only**
-   Return the final result as a JSON dictionary with exactly these fields:
+- impact_confidentiality: ["NONE", "LOW", "HIGH"]
+- impact_integrity: ["NONE", "LOW", "HIGH"]
+- impact_availability: ["NONE", "LOW", "HIGH"]
 
-   {
-     "category": string,
-     "summary": string,
+Base this on what the vulnerable code can expose or damage.
 
-     "attack_vector": string,
-     "attack_complexity": string,
-     "privileges_required": string,
-     "user_interaction": string,
+============================================================
+4. OUTPUT REQUIREMENTS
+============================================================
+You must output ONLY a JSON object matching EXACTLY the schema:
 
-     "impact_confidentiality": string,
-     "impact_integrity": string,
-     "impact_availability": string,
+{
+  "category": string,
+  "summary": string,
 
-     "cvss_score": number,
-     "cve_matches": [ { "cve_id": string, "description": string, "cvss": number | null } ],
+  "attack_vector": string,
+  "attack_complexity": string,
+  "privileges_required": string,
+  "user_interaction": string,
 
-     "remediation": string
-   }
+  "impact_confidentiality": string,
+  "impact_integrity": string,
+  "impact_availability": string
+}
 
-Rules:
-- Always try to use the `search_cve` tool when beneficial.
-- Base your reasoning on BOTH the code and CVE database findings.
-- Do NOT hallucinate CVE IDs or CWE numbers.
-- If no relevant CVEs exist, return an empty list for cve_matches.
-- Keep outputs concise, accurate, and consistent.
+No markdown.  
+No explanation outside the JSON.  
+No additional fields beyond the schema.
+
+Stay concise, technically accurate, and deterministic.
 """
+
         
         # Create the agent
         agent = create_agent(
             model=self.llm,
-            tools=self.tools,
             system_prompt=prompt,
             response_format=EnrichedOutput
         )
@@ -266,9 +165,13 @@ Rules:
         ml_prob = vuln_data.get("prob", "N/A")
         code_type = vuln_data.get("type", "unknown")
 
+
         code_snippet = self._get_code_snippet(state, file_path, line_range)
 
         prompt = f"""
+You are the **ShipSafe Context Enrichment Agent**, an advanced security
+analysis system that enriches raw vulnerability findings with deeper
+context, semantics, and exploit reasoning.
 Analyze the following vulnerability and return ONLY structured JSON matching the EnrichedOutput schema.
 
 VULNERABILITY DETAILS:
@@ -282,10 +185,6 @@ VULNERABILITY DETAILS:
 CODE SNIPPET:
 {code_snippet}
 
-Use tools when helpful:
-- search_cve(): find similar vulnerabilities and pull CVE metadata
-- estimate_cvss(): estimate CVSS score if CVE does not provide one
-
 Return only JSON. No explanations.
     """
         try:
@@ -294,7 +193,7 @@ Return only JSON. No explanations.
             })
 
             enriched_model = result["structured_response"]
-            return enriched_model.model_dump()
+            return {**enriched_model.model_dump(), "code_snippet": code_snippet}
 
         except Exception as e:
             self.logger.error(f"Error enriching vulnerability: {e}", exc_info=True)
@@ -309,9 +208,8 @@ Return only JSON. No explanations.
                 "impact_confidentiality": "LOW",
                 "impact_integrity": "LOW",
                 "impact_availability": "LOW",
-                "cvss_score": 0.0,
-                "cve_matches": [],
-                "code_context": code_snippet,
+                # "cvss_score": 0.0,
+                # "cve_matches": [],
             }
     
     async def _enrich_secret(self, secret_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -322,6 +220,9 @@ Return only JSON. No explanations.
         severity = secret_data.get("sev", "HIGH")
 
         prompt = f"""
+You are the **ShipSafe Context Enrichment Agent**, an advanced security
+analysis system that enriches raw vulnerability findings with deeper
+context, semantics, and exploit reasoning.
 Analyze the following hardcoded secret and return ONLY structured JSON
 matching the EnrichedOutput schema.
 
@@ -356,9 +257,97 @@ Return only JSON.
                 "impact_confidentiality": "LOW",
                 "impact_integrity": "LOW",
                 "impact_availability": "LOW",
-                "cvss_score": 0.0,
-                "cve_matches": [],
+                # "cvss_score": 0.0,
+                # "cve_matches": [],
             }
+    # def estimate_cvss(attack_vector: str, impact_conf: str, impact_integ: str, impact_avail: str) -> float:
+    #     """
+    #     Estimate CVSS score when official CVSS is missing.
+    #     Returns a number between 0.0 and 10.0.
+
+    #     Inputs:
+    #     - attack_vector: NETWORK, ADJACENT, LOCAL, PHYSICAL
+    #     - impact_conf: NONE, LOW, HIGH
+    #     - impact_integ: NONE, LOW, HIGH
+    #     - impact_avail: NONE, LOW, HIGH
+    #     """
+
+    #     # Base scores for attack vectors
+    #     av_score = {
+    #         "NETWORK": 0.85,
+    #         "ADJACENT": 0.62,
+    #         "LOCAL": 0.55,
+    #         "PHYSICAL": 0.20
+    #     }.get(attack_vector.upper(), 0.55)
+
+    #     imp_map = {"NONE": 0.0, "LOW": 0.22, "HIGH": 0.56}
+
+    #     conf = imp_map.get(impact_conf.upper(), 0)
+    #     integ = imp_map.get(impact_integ.upper(), 0)
+    #     avail = imp_map.get(impact_avail.upper(), 0)
+
+    #     impact_subscore = 1 - ((1 - conf) * (1 - integ) * (1 - avail))
+
+    #     cvss = round(min(10.0, av_score * 3.5 + impact_subscore * 6.5), 1)
+    #     return cvss
+
+    # def search_cve(keyword: str, limit: int = 5):
+    #     """
+    #     Search NVD CVE database using keyword.
+    #     Returns top matches with CVE ID + description + CVSS if present.
+    #     """
+    #     NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+    #     params = {
+    #         "keywordSearch": keyword,
+    #         "resultsPerPage": limit,
+    #     }
+
+    #     try:
+    #         r = requests.get(NVD_API, params=params, timeout=5)
+    #         data = r.json()
+
+    #         results = []
+
+    #         for item in data.get("vulnerabilities", []):
+    #             cve = item["cve"]
+    #             cve_id = cve["id"]
+
+    #             description = cve["descriptions"][0]["value"]
+
+    #             cvss = None
+    #             if "metrics" in cve:
+    #                 cvss_data = cve["metrics"].get("cvssMetricV31") or cve["metrics"].get("cvssMetricV30")
+    #                 if cvss_data:
+    #                     cvss = cvss_data[0]["cvssData"]["baseScore"]
+
+    #             cwe = None
+
+    #             if "weaknesses" in cve:
+    #                 try:
+    #                     cwe = cve["weaknesses"][0]["description"][0]["value"]
+    #                 except Exception:
+    #                     pass
+
+    #             if not cwe:
+    #                 try:
+    #                     cwe = cve["problemtype"]["problemtype_data"][0]["description"][0]["value"]
+    #                 except Exception:
+    #                     pass
+
+
+    #             results.append({
+    #                 "cve_id": cve_id,
+    #                 "description": description,
+    #                 "cwe": cwe,
+    #                 "cvss": cvss
+    #             })
+
+    #         return results
+
+    #     except Exception as e:
+    #         return [{"error": str(e)}]
+
+        
 
     
     def _get_code_snippet(self, state: ScanState, file_path: str, line_range: str) -> str:
@@ -412,7 +401,7 @@ Return only JSON.
         
         self.logger.info(
             f"Enriching {len(vulnerabilities)} vulnerabilities "
-            f"and {len(secrets)} secrets with ReAct agent"
+            f"and {len(secrets)} secrets with agent"
         )
         
         # Enrich vulnerabilities using ReAct agent
@@ -429,10 +418,11 @@ Return only JSON.
             enriched_data = await self._enrich_secret(secret_data)
             enriched_secrets.append(to_toon(enriched_data))
         
-        self.logger.info("Context enrichment complete")
+        self.logger.info(f"Context enrichment complete: Secrets: {enriched_secrets} \n Vuln : {enriched_vulnerabilities}")
         
         return {
             "enriched_vulnerabilities": enriched_vulnerabilities,
             "enriched_secrets": enriched_secrets,
             "status": "enrichment_complete",
         }
+    

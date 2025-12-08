@@ -56,7 +56,7 @@ class CodeScannerAgent(BaseAgent):
                         "file": path,
                         "ln": f"{u['start']}-{u['end']}",
                         "prob": round(score, 3),
-                        "type": u["type"]
+                        "type": u["type"],
                     })
 
                     vulnerabilities.append(vuln)
