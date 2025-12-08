@@ -91,11 +91,18 @@ export interface AgentStage {
 }
 
 // Real-time scan progress types
+export interface AgentProgressSubItem {
+  text: string;
+  visible: boolean;
+  icon?: 'arrow' | 'check' | 'spinner';
+}
+
 export interface AgentProgress {
   status: AgentStatus;
   started_at: string | null;
   completed_at: string | null;
   error?: string;
+  sub_items?: AgentProgressSubItem[];
 }
 
 export interface ScanProgress {

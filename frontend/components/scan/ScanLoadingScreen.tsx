@@ -9,9 +9,35 @@ interface ScanLoadingScreenProps {
   scanProgress?: ScanProgress | null;
 }
 
+const AGENT_SUB_STEPS: Record<string, { text: string; delay: number }[]> = {
+  orchestrator: [
+    { text: 'Repository cloned successfully', delay: 1000 },
+    { text: 'Analyzing project structure...', delay: 2000 },
+    { text: 'Workflow initialized successfully', delay: 3000 },
+  ],
+  code_scanner: [
+    { text: 'Scanning files...', delay: 500 },
+    { text: 'Analyzing code patterns...', delay: 2000 },
+    { text: 'Found potential issues', delay: 4000 },
+  ],
+  secret_detector: [
+    { text: 'Analyzing code patterns...', delay: 500 },
+    { text: 'Checking for exposed credentials', delay: 2000 },
+  ],
+  context_enricher: [
+    { text: 'Cross-referencing with CVE database', delay: 1000 },
+    { text: 'Analyzing attack vectors', delay: 3000 },
+  ],
+  remediation: [
+    { text: 'Creating security patches...', delay: 1000 },
+    { text: 'Validating fix suggestions', delay: 2500 },
+  ],
+};
+
 export default function ScanLoadingScreen({ repositoryName, scanProgress }: ScanLoadingScreenProps) {
   const [startTime] = useState(Date.now());
   const [elapsed, setElapsed] = useState(0);
+  const [visibleSubItems, setVisibleSubItems] = useState<Record<string, number>>({});
 
   // Timer to show elapsed time
   useEffect(() => {
@@ -21,6 +47,42 @@ export default function ScanLoadingScreen({ repositoryName, scanProgress }: Scan
 
     return () => clearInterval(interval);
   }, [startTime]);
+
+  // Progressively reveal sub-items for running agents
+  useEffect(() => {
+    if (!scanProgress) return;
+
+    const timeouts: NodeJS.Timeout[] = [];
+
+    agentList.forEach((agent) => {
+      const status = getAgentStatus(agent.key);
+      const agentStartTime = scanProgress.agents[agent.key as keyof typeof scanProgress.agents]?.started_at;
+
+      if (status === 'in_progress' && agentStartTime) {
+        const subSteps = AGENT_SUB_STEPS[agent.key] || [];
+
+        subSteps.forEach((step, index) => {
+          const timeout = setTimeout(() => {
+            setVisibleSubItems((prev) => ({
+              ...prev,
+              [agent.key]: index + 1,
+            }));
+          }, step.delay);
+          timeouts.push(timeout);
+        });
+      } else if (status === 'completed') {
+        // Show all sub-items when complete
+        setVisibleSubItems((prev) => ({
+          ...prev,
+          [agent.key]: AGENT_SUB_STEPS[agent.key]?.length || 0,
+        }));
+      }
+    });
+
+    return () => {
+      timeouts.forEach((timeout) => clearTimeout(timeout));
+    };
+  }, [scanProgress]);
 
   const formatElapsed = (seconds: number): string => {
     if (seconds < 60) return `${seconds}s`;
@@ -98,11 +160,6 @@ export default function ScanLoadingScreen({ repositoryName, scanProgress }: Scan
   return (
     <div className="min-h-screen bg-white py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">ShipSafe</h1>
-          <p className="text-gray-600">Security Vulnerability Scanner</p>
-        </div>
 
         {/* Repository Card with Timer */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
@@ -173,6 +230,24 @@ export default function ScanLoadingScreen({ repositoryName, scanProgress }: Scan
                           : ''}
                       </div>
                     )}
+
+                    {/* Show sub-items when agent is running or completed */}
+                    {(status === 'in_progress' || status === 'completed') &&
+                      AGENT_SUB_STEPS[agent.key] && (
+                        <div className="space-y-2 mt-4 pl-4 border-l border-gray-200">
+                          {AGENT_SUB_STEPS[agent.key]
+                            .slice(0, visibleSubItems[agent.key] || 0)
+                            .map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 text-sm text-gray-700"
+                              >
+                                <span className="text-gray-400">→</span>
+                                <span>{item.text}</span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
