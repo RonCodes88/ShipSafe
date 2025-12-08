@@ -2,10 +2,10 @@
 
 from langgraph.graph import StateGraph, END
 from .state import ScanState
+import httpx
 
 
-
-def create_scan_workflow():
+def create_scan_workflow(http_client: httpx.AsyncClient):
     
     """
     Create the vulnerability scanning workflow using LangGraph.
@@ -26,7 +26,7 @@ def create_scan_workflow():
 
 
     # Initialize agents
-    orchestrator = OrchestratorAgent()
+    orchestrator = OrchestratorAgent(http_client)
     code_scanner = CodeScannerAgent()
     secret_detector = SecretDetectorAgent()
     context_enricher = ContextEnricherAgent()
@@ -66,31 +66,15 @@ def create_scan_workflow():
     workflow.add_node("context_enricher", context_enricher_node)
     workflow.add_node("remediation", remediation_node)
     
-    # Set entry point
     workflow.set_entry_point("orchestrator")
     
-    # Add edges for sequential flow
-    # Phase 1: Code vulnerability scanning pipeline
     workflow.add_edge("orchestrator", "code_scanner")
-    workflow.add_edge("code_scanner", "context_enricher")
+    workflow.add_edge("code_scanner", "secret_detector")
     workflow.add_edge("context_enricher", "remediation")
-    
-    # Phase 2: Secret detection pipeline
-    workflow.add_edge("remediation", "secret_detector")
-    # Context enricher and remediation are reused for secrets
-    # In LangGraph, nodes can be revisited in the same execution
     workflow.add_edge("secret_detector", "context_enricher")
-    workflow.add_edge("context_enricher", "remediation")
-    
-    # End after final remediation
     workflow.add_edge("remediation", END)
     
     # Compile the graph
     app = workflow.compile()
     
     return app
-
-
-# Create the workflow instance
-scan_workflow = create_scan_workflow()
-
