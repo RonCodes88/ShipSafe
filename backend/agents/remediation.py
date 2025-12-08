@@ -83,6 +83,7 @@ Rules:
         impact_integrity = enriched.get("impact_integrity", "LOW")
         impact_availability = enriched.get("impact_availability", "LOW")
         code = enriched.get("code_snippet")
+        filename = enriched.get("file", "unknown.py")
 
         prompt = f"""
 You are a secure code repair system. Your job is to generate safe, correct, minimal patches.
@@ -110,9 +111,9 @@ Produce ONLY a unified diff patch with an explanation that fixes the vulnerabili
 
 ====================== REQUIRED FORMAT =========================
 ```patch
-diff --git a/FILE.py b/FILE.py
---- a/FILE.py
-+++ b/FILE.py
+diff --git a/{filename} b/{filename}
+--- a/{filename}
++++ b/{filename}
 @@
 <your fixed code diff here>
 RULES:
