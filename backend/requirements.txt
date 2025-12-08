@@ -12,3 +12,6 @@ bitsandbytes
 accelerate
 peft
 langchain_openai
+python-dotenv
+httpx
+langchain-ollama
