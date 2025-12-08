@@ -158,6 +158,7 @@ Stay concise, technically accurate, and deterministic.
         """
         Enrich a vulnerability using structured LLM output (EnrichedOutput).
         """
+        self.logger.debug(f"Input vuln_data: {vuln_data}")
         vuln_type = vuln_data.get("vuln", "UNKNOWN")
         severity = vuln_data.get("sev", "MEDIUM")
         file_path = vuln_data.get("file", "unknown")
@@ -193,12 +194,26 @@ Return only JSON. No explanations.
             })
 
             enriched_model = result["structured_response"]
-            return {**enriched_model.model_dump(), "code_snippet": code_snippet}
+            # Preserve original metadata (file, ln) and add enriched data
+            merged_result = {
+                **enriched_model.model_dump(),  # Add enriched fields first
+                **vuln_data,  # Then add original fields (will override any conflicts)
+                "code_snippet": code_snippet
+            }
+            # Explicitly ensure file and ln are preserved
+            if "file" in vuln_data:
+                merged_result["file"] = vuln_data["file"]
+            if "ln" in vuln_data:
+                merged_result["ln"] = vuln_data["ln"]
+            
+            self.logger.debug(f"Merged result file field: {merged_result.get('file')}, ln: {merged_result.get('ln')}")
+            return merged_result
 
         except Exception as e:
             self.logger.error(f"Error enriching vulnerability: {e}", exc_info=True)
-            # Safe fallback structure
+            # Safe fallback structure - preserve original fields
             return {
+                **vuln_data,  # Preserve original fields
                 "category": "Unknown",
                 "summary": "Analysis failed.",
                 "attack_vector": "LOCAL",
@@ -208,14 +223,13 @@ Return only JSON. No explanations.
                 "impact_confidentiality": "LOW",
                 "impact_integrity": "LOW",
                 "impact_availability": "LOW",
-                # "cvss_score": 0.0,
-                # "cve_matches": [],
             }
     
     async def _enrich_secret(self, secret_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Enrich a secret using the same EnrichedOutput structured schema.
         """
+        self.logger.debug(f"Input secret_data: {secret_data}")
         secret_type = secret_data.get("secret", "UNKNOWN")
         severity = secret_data.get("sev", "HIGH")
 
@@ -242,7 +256,21 @@ Return only JSON.
 
 
             enriched_model = result["structured_response"]
-            return enriched_model.model_dump()
+            # Preserve original metadata (file, ln, type) and add enriched data
+            merged_result = {
+                **enriched_model.model_dump(),  # Add enriched fields first
+                **secret_data  # Then add original fields (will override any conflicts)
+            }
+            # Explicitly ensure file and ln are preserved
+            if "file" in secret_data:
+                merged_result["file"] = secret_data["file"]
+            if "ln" in secret_data:
+                merged_result["ln"] = secret_data["ln"]
+            if "type" in secret_data:
+                merged_result["type"] = secret_data["type"]
+            
+            self.logger.debug(f"Merged secret result file field: {merged_result.get('file')}, ln: {merged_result.get('ln')}")
+            return merged_result
 
         except Exception as e:
             self.logger.error(f"Error enriching secret: {e}", exc_info=True)

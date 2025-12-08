@@ -22,7 +22,9 @@ class OrchestratorAgent(BaseAgent):
         self, repo_url: str, token: str
     ) -> Dict[str, Any]:
         """Fetch repo metadata (size, language, etc.) using GitHub REST API."""
-        owner, repo = repo_url.replace("https://github.com/", "").split("/")
+        # Remove .git suffix and extract owner/repo
+        clean_url = repo_url.replace("https://github.com/", "").replace(".git", "")
+        owner, repo = clean_url.split("/")
         api_url = f"https://api.github.com/repos/{owner}/{repo}"
 
         headers = {"Authorization": f"Bearer {token}"}
@@ -41,7 +43,9 @@ class OrchestratorAgent(BaseAgent):
         self, repo_url: str, token: str
     ) -> Dict[str, Any]:
         """Fetch the repo file tree (list of files)."""
-        owner, repo = repo_url.replace("https://github.com/", "").split("/")
+        # Remove .git suffix and extract owner/repo
+        clean_url = repo_url.replace("https://github.com/", "").replace(".git", "")
+        owner, repo = clean_url.split("/")
         api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/HEAD?recursive=1"
 
         headers = {"Authorization": f"Bearer {token}"}
@@ -59,7 +63,9 @@ class OrchestratorAgent(BaseAgent):
         self, repo_url: str, file_path: str, token: str
     ) -> Optional[str]:
         """Fetch raw file content from GitHub."""
-        owner, repo = repo_url.replace("https://github.com/", "").split("/")
+        # Remove .git suffix and extract owner/repo
+        clean_url = repo_url.replace("https://github.com/", "").replace(".git", "")
+        owner, repo = clean_url.split("/")
         api_url = f"https://raw.githubusercontent.com/{owner}/{repo}/HEAD/{file_path}"
 
         headers = {"Authorization": f"Bearer {token}"}

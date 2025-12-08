@@ -1,8 +1,25 @@
+import os
+import sys
+import time
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
-import time
-from graph.workflow import scan_workflow
+import httpx
+from dotenv import load_dotenv
+
+# Ensure project root is on sys.path so `backend.*` imports inside the
+# workflow graph resolve correctly when running `python main.py` from
+# the `backend/` directory.
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+# Load environment variables from `backend/.env` (where this file lives)
+load_dotenv(os.path.join(CURRENT_DIR, ".env"))
+
+from graph.workflow import create_scan_workflow
 
 app = FastAPI(
     title="ShipSafe API",
@@ -60,11 +77,21 @@ async def scan_repository(request: ScanRequest):
                 status_code=400,
                 detail="repo_url is required"
             )
-        
+
+        # Load GitHub token from environment
+        github_token = os.getenv("GITHUB_TOKEN")
+        if not github_token:
+            raise HTTPException(
+                status_code=500,
+                detail="GITHUB_TOKEN environment variable is not set"
+            )
+
         # Initialize state
         start_time = time.time()
         initial_state = {
             "repo_url": request.repo_url,
+            "github_token": github_token,
+            "files": {},
             "repo_metadata": {},
             "vulnerabilities": [],
             "secrets": [],
@@ -80,7 +107,9 @@ async def scan_repository(request: ScanRequest):
         }
         
         # Execute the workflow
-        result = await scan_workflow.ainvoke(initial_state)
+        async with httpx.AsyncClient() as client:
+            workflow_app = create_scan_workflow(client)
+            result = await workflow_app.ainvoke(initial_state)
         
         # Calculate execution time
         execution_time = time.time() - start_time
@@ -95,6 +124,7 @@ async def scan_repository(request: ScanRequest):
             "repository": result.get("repo_metadata", {}),
             "vulnerabilities": result.get("vulnerability_patches", []),
             "secrets": result.get("secret_patches", []),
+            "files": result.get("files", {}),  # Include file contents
             "metadata": {
                 "agents_invoked": result.get("agent_trace", []),
                 "errors": result.get("errors", []),
