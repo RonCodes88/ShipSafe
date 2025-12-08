@@ -1,6 +1,6 @@
 'use client';
 
-import { Github, ExternalLink, Clock } from 'lucide-react';
+import { Github, ExternalLink, Clock, Shield, Loader } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -33,6 +33,7 @@ export function ProjectGrid() {
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [loading, setLoading] = useState(true);
   const [needsSync, setNeedsSync] = useState(false);
+  const [scanning, setScanning] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const query = (searchParams.get('search') || '').trim().toLowerCase();
   const router = useRouter();
@@ -64,7 +65,7 @@ export function ProjectGrid() {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 60) {
       return `${diffInMinutes} minutes ago`;
     } else if (diffInMinutes < 1440) {
@@ -72,6 +73,16 @@ export function ProjectGrid() {
     } else {
       return `${Math.floor(diffInMinutes / 1440)} days ago`;
     }
+  };
+
+  const handleStartScan = (repo: GitHubRepo) => {
+    setScanning(repo.id);
+
+    // Generate scan ID and navigate to scan page
+    const scanId = `${repo.id}-${Date.now()}`;
+    const repoUrl = encodeURIComponent(repo.clone_url);
+
+    router.push(`/repositories/${repo.id}/scan/${scanId}?repo_url=${repoUrl}`);
   };
 
   const filtered = query
@@ -239,16 +250,33 @@ export function ProjectGrid() {
 
             {/* Card Footer with Actions */}
             <div className="px-6 pb-6">
-              <div className="flex">
-                <a 
-                  href={repo.html_url} 
-                  target="_blank" 
+              <div className="flex gap-2">
+                <a
+                  href={repo.html_url}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors text-sm"
                 >
                   <Github className="w-4 h-4" />
                   View Code
                 </a>
+                <button
+                  onClick={() => handleStartScan(repo)}
+                  disabled={scanning === repo.id}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {scanning === repo.id ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4" />
+                      Start Scan
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
