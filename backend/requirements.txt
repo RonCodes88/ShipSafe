@@ -11,3 +11,4 @@ torch
 bitsandbytes
 accelerate
 peft
+langchain_openai

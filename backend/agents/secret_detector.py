@@ -8,8 +8,7 @@ from typing import Dict, Any, List
 from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import to_toon
-
-import base64
+import json
 import re
 import math
 from pydantic import BaseModel
@@ -29,14 +28,14 @@ def shannon_entropy(s: str) -> float:
     return -sum((count/len(s)) * math.log2(count/len(s)) for count in freq.values())
 
 
-def try_base64_decode(value: str) -> str:
-    """Return decoded Base64 string or None."""
-    try:
-        padded = value + "=" * (-len(value) % 4)
-        decoded = base64.b64decode(padded, validate=True)
-        return decoded.decode("utf-8", errors="replace")
-    except Exception:
-        return None
+# def try_base64_decode(value: str) -> str:
+#     """Return decoded Base64 string or None."""
+#     try:
+#         padded = value + "=" * (-len(value) % 4)
+#         decoded = base64.b64decode(padded, validate=True)
+#         return decoded.decode("utf-8", errors="replace")
+#     except Exception:
+#         return None
 
 
 # ============================
@@ -99,18 +98,6 @@ class SecretDetectorAgent(BaseAgent):
                         "entropy": ent
                     })
 
-            # Base64 detection
-            tokens = re.findall(r"[A-Za-z0-9/\+=]{12,}", line)
-            for tok in tokens:
-                decoded = try_base64_decode(tok)
-                if decoded and len(decoded) > 6:
-                    candidates.append({
-                        "value": tok,
-                        "line": i,
-                        "origin": "base64",
-                        "decoded": decoded,
-                        "entropy": shannon_entropy(decoded)
-                    })
 
         return candidates
 
@@ -126,7 +113,7 @@ class SecretDetectorAgent(BaseAgent):
 You are ShipSafe Secret Classifier.
 
 Below are candidate secrets extracted from local detection
-(regex, entropy, base64 decode). Classify each item.
+(regex, entropy). Classify each item.
 
 Return a JSON list of:
 
@@ -148,7 +135,7 @@ CANDIDATES:
 
         try:
             response = await self.llm.ainvoke(prompt)
-            print(response.content)
+            print(f"OLlama worked : {response.content}")
             return response.content
         except Exception as e:
             self.logger.error(f"LLM error: {e}")
@@ -156,21 +143,18 @@ CANDIDATES:
 
     async def _execute(self, state: ScanState) -> Dict[str, Any]:
 
-        repo_files = state.get("repo_metadata", {}).get("files", [])
         all_findings = []
-
-        for fileinfo in repo_files:
-            path = fileinfo["path"]
-            content = fileinfo.get("content", "")
-
-            # Step 1: Fast local candidate extraction
+        for path, content in state["files"].items():
             candidates = self.extract_candidates(content)
-            print(candidates)
 
-            # Step 2: LLM classification (fast single call)
             findings = await self.classify_candidates(path, candidates)
+            if isinstance(findings, str):
+                try:
+                    findings = json.loads(findings)
+                except Exception:
+                    self.logger.error(f"Failed to parse LLM JSON for {path}: {findings}")
+                    findings = []
 
-            # Step 3: Convert to TOON
             if isinstance(findings, list):
                 for f in findings:
                     toon = to_toon({
@@ -181,9 +165,8 @@ CANDIDATES:
                         "ln": str(f.get("line", 0)),
                     })
                     all_findings.append(toon)
-            print(all_findings)
 
+        self.logger.info(f"Findings from secret detector: {all_findings}")
         return {
             "secrets": all_findings,
-            "status": "secret_scan_complete_fast"
         }

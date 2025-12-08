@@ -375,33 +375,24 @@ Return only JSON.
         """
         try:
             # Get files from repo metadata
-            files = state.get("repo_metadata", {}).get("files", [])
+            content = state.get("files")[file_path]
+            if "-" in line_range:
+                start, end = map(int, line_range.split("-"))
+                lines = content.split("\n")
+                
+                # Extract the specific lines (with some context)
+                context_before = max(0, start - 3)
+                context_after = min(len(lines), end + 3)
+                
+                snippet_lines = lines[context_before:context_after]
+                snippet = "\n".join(snippet_lines)
+                
+                return f"Lines {context_before+1}-{context_after}:\n{snippet}"
             
-            # Find the matching file
-            for file_data in files:
-                if file_data.get("path") == file_path:
-                    content = file_data.get("content", "")
-                    
-                    # Parse line range
-                    if "-" in line_range:
-                        start, end = map(int, line_range.split("-"))
-                        lines = content.split("\n")
+            # If no line range, return first 20 lines
+            lines = content.split("\n")[:20]
+            return "\n".join(lines)
                         
-                        # Extract the specific lines (with some context)
-                        context_before = max(0, start - 3)
-                        context_after = min(len(lines), end + 3)
-                        
-                        snippet_lines = lines[context_before:context_after]
-                        snippet = "\n".join(snippet_lines)
-                        
-                        return f"Lines {context_before+1}-{context_after}:\n{snippet}"
-                    
-                    # If no line range, return first 20 lines
-                    lines = content.split("\n")[:20]
-                    return "\n".join(lines)
-            
-            return "Code snippet not available"
-            
         except Exception as e:
             self.logger.error(f"Error extracting code snippet: {e}")
             return "Code snippet extraction failed"

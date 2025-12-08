@@ -1,14 +1,9 @@
-"""Remediation Agent - Patch generation and fix suggestions."""
-
-from typing import Dict, Any, List
+from typing import Dict, Any
 from .base_agent import BaseAgent, AgentConfig
 from graph.state import ScanState
 from utils.toon_parser import parse_toon, to_toon
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-import json
+from langchain_ollama import ChatOllama
 import re
-import ast
-
 
 
 class RemediationAgent(BaseAgent):
@@ -16,28 +11,14 @@ class RemediationAgent(BaseAgent):
     def __init__(self, config: AgentConfig = None):
         super().__init__(config)
 
-        # Load RepairLLaMA adapter model
-        model_id = "bigcode/starcoder2-3b"
-
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            device_map="auto",
-            torch_dtype="auto",
-        )
-
-        self.pipe = pipeline(
-            "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            max_new_tokens=500,
-            temperature=0.2,
-            num_beams=5
+        self.llm = ChatOllama(
+            model="llama3",
+            temperature=0
         )
 
     async def _generate_patch(self, code: str, enriched: Dict[str, Any], alternatives: int = 3):
         """
-        Generate multiple patch candidates using RepairLLaMA.
+        Generate multiple patch candidates using an LLM.
         """
 
         summary = enriched.get("summary", "")
@@ -50,113 +31,121 @@ class RemediationAgent(BaseAgent):
         for i in range(alternatives):
 
             prompt = f"""
-You are RepairLLaMA, a program repair specialist.
+You are a secure code repair system. Your task is to generate correct and safe patches.
 
-Given a vulnerable Java function and context:
-- Vulnerability category: {category}
+VULNERABILITY CONTEXT:
+- Category: {category}
 - Summary: {summary}
 - CVSS Score: {cvss}
 - Recommended remediation: {remediation_hint}
 
-BUGGY FUNCTION:
+BUGGY CODE:
 {code}
 
+sql
+Copy code
+
 TASK:
-Produce a FIXED VERSION of the function. ONLY output the replacement patch code
-for the buggy region, as a raw code block. Do not add text outside the code block.
+Return ONLY the FIXED code in a patch format like:
 
-Format:
 ```patch
-<your_patch_here>
-    """
+<patch_here>
+RULES:
 
-        result = self.pipe(prompt)[0]["generated_text"]
+No explanations outside the code block.
 
-        # Extract patch block
-        match = re.search(r"```patch(.*?)```", result, re.S)
-        patch_text = match.group(1).strip() if match else result
+Only output the corrected patch.
 
-        patches.append({
-            "patch_number": i + 1,
-            "patch": patch_text,
-            "explanation": f"Repair option {i+1} based on vulnerability summary."
-        })
+Do NOT repeat the prompt.
+"""
+
+            try:
+                res = await self.llm.ainvoke(prompt)
+                text = res.content
+            except Exception as e:
+                patches.append({
+                    "patch_number": i + 1,
+                    "patch": f"ERROR: {e}",
+                    "explanation": "Model generation failed."
+                })
+                continue
+
+        # Extract ```patch ... ```
+            match = re.search(r"```patch(.*?)```", text, re.S)
+            patch_text = match.group(1).strip() if match else text.strip()
+
+            patches.append({
+                "patch_number": i + 1,
+                "patch": patch_text,
+                "explanation": f"Automated remediation option {i+1}."
+            })
 
         return patches
-
     def _validate_patch(self, patch: str) -> bool:
         """
-        Very lightweight validation:
-        - Check that patch is syntactically valid Java (basic check)
-        - Ensure no dangerous patterns were introduced
+        Basic validation to ensure no dangerous patterns are introduced.
         """
-        bad_patterns = [
-            "Runtime.getRuntime().exec",   # introduces RCE
-            "ProcessBuilder(",             # dangerous
-            "eval(",                       # unsafe eval
-        ]
-        return not any(p in patch for p in bad_patterns)
+        forbidden = [
+            "Runtime.getRuntime().exec",
+            "ProcessBuilder(",
+            "eval("
+            ]
+        return not any(x in patch for x in forbidden)
 
     async def _execute(self, state: ScanState) -> Dict[str, Any]:
         """
-        Generate patches from enriched vulnerabilities and secrets.
+        Generate patches for enriched vulnerabilities and secrets.
         """
+
 
         enriched_vulns = state.get("enriched_vulnerabilities", [])
         enriched_secrets = state.get("enriched_secrets", [])
 
         self.logger.info(
-            f"Generating remediation for {len(enriched_vulns)} vulnerabilities and "
-            f"{len(enriched_secrets)} secrets"
+            f"Generating remediation for {len(enriched_vulns)} vulnerabilities "
+            f"and {len(enriched_secrets)} secrets"
         )
 
-        vulnerability_patches = []
+        vuln_patches = []
 
-        # -----------------------------------------------
-        # VULNERABILITIES → PATCH GENERATION
-        # -----------------------------------------------
+        # Generate patches for vulnerabilities
         for vuln_toon in enriched_vulns:
             data = parse_toon(vuln_toon)
-
             code = data.get("code_context", "")
+
             if not code:
                 continue
 
             patches = await self._generate_patch(code, data, alternatives=3)
+            valid_patches = [p for p in patches if self._validate_patch(p["patch"])]
 
-            clean_patches = [
-                p for p in patches if self._validate_patch(p["patch"])
-            ]
-
-            patch_record = {
+            record = {
                 "file": data.get("file"),
                 "line_range": data.get("ln"),
                 "category": data.get("category"),
                 "summary": data.get("summary"),
-                "patch_id": f"patch_{len(vulnerability_patches)}",
-                "alternatives": clean_patches,
+                "patch_id": f"patch_{len(vuln_patches)}",
+                "alternatives": valid_patches
             }
 
-            vulnerability_patches.append(to_toon(patch_record))
+            vuln_patches.append(to_toon(record))
 
-        # -----------------------------------------------
-        # SECRETS → SIMPLE REMEDIATION
-        # -----------------------------------------------
+        # Handle secret remediation
         secret_patches = []
-        for s in enriched_secrets:
-            sec = parse_toon(s)
+        for sec_toon in enriched_secrets:
+            sec = parse_toon(sec_toon)
 
-            patch_record = {
+            record = {
                 **sec,
                 "patch_id": f"secret_patch_{len(secret_patches)}",
                 "fix_type": "remove_secret",
-                "recommendation": "Move secret to environment variables or secret manager.",
+                "recommendation": "Move the secret to environment variables or a secure storage system."
             }
 
-            secret_patches.append(to_toon(patch_record))
+            secret_patches.append(to_toon(record))
 
         return {
-            "vulnerability_patches": vulnerability_patches,
+            "vulnerability_patches": vuln_patches,
             "secret_patches": secret_patches,
-            "status": "remediation_complete",
+            "status": "remediation_complete"
         }

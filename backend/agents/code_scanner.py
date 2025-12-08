@@ -36,10 +36,9 @@ class CodeScannerAgent(BaseAgent):
         self.logger.info(f"Scanning code for vulnerabilities in: {repo_name}")
 
         vulnerabilities = []
+        print(f"State: {state}")
 
-        for f in state["repo_metadata"]["files"]:
-            path = f["path"]
-            code = f["content"]
+        for path, code in state["files"].items():
             ext = path.split(".")[-1]
 
             parser = get_language_parser(ext)
@@ -62,8 +61,7 @@ class CodeScannerAgent(BaseAgent):
 
                     vulnerabilities.append(vuln)
 
-        state["vulnerabilities"] += vulnerabilities
-        state["agent_trace"].append("code_scanner")
+        self.logger.info(f"Findings from code scanner: {vulnerabilities}")
 
         return {
             "vulnerabilities": vulnerabilities,
