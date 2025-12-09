@@ -14,9 +14,9 @@ export default function CodeViewer({ file, onMarkerClick, highlightedLine }: Cod
   const lines = file.content.split('\n');
 
   return (
-    <div className="h-full flex flex-col bg-gray-900">
+    <div className="h-full flex flex-col bg-white border-l border-gray-200">
       {/* Simple File Header */}
-      <div className="px-4 py-2 bg-gray-800 text-gray-300 text-sm font-mono">
+      <div className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-mono border-b border-gray-200">
         {file.path}
       </div>
 
@@ -31,12 +31,12 @@ export default function CodeViewer({ file, onMarkerClick, highlightedLine }: Cod
             return (
               <div
                 key={lineNumber}
-                className={`flex items-start group hover:bg-gray-800 transition-colors ${
-                  isHighlighted ? 'bg-gray-800' : ''
+                className={`flex items-start group hover:bg-gray-50 transition-colors ${
+                  isHighlighted ? 'bg-blue-50' : ''
                 }`}
               >
                 {/* Line Number */}
-                <div className="flex-shrink-0 w-16 text-right pr-4 py-1 text-gray-500 select-none bg-gray-900 border-r border-gray-700">
+                <div className="flex-shrink-0 w-16 text-right pr-4 py-1 text-gray-400 select-none bg-gray-50 border-r border-gray-200">
                   {lineNumber}
                 </div>
 
@@ -52,7 +52,7 @@ export default function CodeViewer({ file, onMarkerClick, highlightedLine }: Cod
 
                 {/* Code Line */}
                 <pre className="flex-1 px-4 py-1 overflow-x-auto">
-                  <code className="text-gray-200">{line || ' '}</code>
+                  <code className="text-gray-800">{line || ' '}</code>
                 </pre>
               </div>
             );
