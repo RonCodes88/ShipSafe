@@ -2,6 +2,7 @@
 
 import { Github } from 'lucide-react';
 import { signIn } from 'next-auth/react';
+import Image from 'next/image';
 
 export function LoginScreen() {
   const handleGitHubSignIn = () => {
@@ -13,10 +14,15 @@ export function LoginScreen() {
       <div className="text-center max-w-md mx-auto px-4">
         {/* Logo */}
         <div className="mb-8">
-          <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+          <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4 shadow-md bg-black">
+            <Image
+              src="/shipsafe-logo.jpg"
+              alt="ShipSafe logo"
+              width={64}
+              height={64}
+              className="object-cover w-16 h-16"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold text-black mb-2">ShipSafe</h1>
           <p className="text-gray-600 text-sm">

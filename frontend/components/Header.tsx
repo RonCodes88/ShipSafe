@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import SyncButton from './SyncButton';
 
 interface HeaderProps {
@@ -79,10 +80,15 @@ export function Header({ onSyncComplete }: HeaderProps) {
       {/* Logo and Navigation */}
       <div className="flex items-center gap-12">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-black rounded-2xl flex items-center justify-center shadow-lg">
-            <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
+          <div className="w-10 h-10 rounded-2xl overflow-hidden shadow-lg bg-black">
+            <Image
+              src="/shipsafe-logo.jpg"
+              alt="ShipSafe logo"
+              width={40}
+              height={40}
+              className="object-cover w-10 h-10"
+              priority
+            />
           </div>
           <div>
             <span className="font-bold text-2xl text-black">ShipSafe</span>
