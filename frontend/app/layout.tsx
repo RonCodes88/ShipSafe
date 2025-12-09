@@ -17,6 +17,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ShipSafe",
   description: "Protect your code from security vulnerabilities in real-time",
+  icons: {
+    icon: [
+      { url: "/shipsafe-logo.jpg", type: "image/jpeg" },
+      { url: "/shipsafe-logo.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/shipsafe-logo.jpg"],
+    apple: ["/shipsafe-logo.jpg"],
+  },
 };
 
 export default function RootLayout({
