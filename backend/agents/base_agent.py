@@ -59,8 +59,14 @@ class BaseAgent(ABC):
         Returns:
             Updated scan state
         """
+        agent_name = self.__class__.__name__.replace("Agent", "").lower().replace("orchestrator", "orchestrator").replace("codescanner", "code_scanner").replace("secretdetector", "secret_detector").replace("contextenricher", "context_enricher").replace("remediation", "remediation")
+        
         try:
             self.logger.info(f"Processing with {self.__class__.__name__}")
+            
+            # Update progress: agent started
+            if "progress_callback" in state and state["progress_callback"]:
+                state["progress_callback"](agent_name, "in_progress")
             
             # Track agent invocation
             if "agent_trace" not in state:
@@ -74,10 +80,19 @@ class BaseAgent(ABC):
             updated_state = self._update_state(state, result)
             
             self.logger.info(f"{self.__class__.__name__} completed successfully")
+            
+            # Update progress: agent completed
+            if "progress_callback" in state and state["progress_callback"]:
+                state["progress_callback"](agent_name, "completed")
+            
             return updated_state
             
         except Exception as e:
             self.logger.error(f"Error in {self.__class__.__name__}: {e}", exc_info=True)
+            
+            # Update progress: agent failed
+            if "progress_callback" in state and state["progress_callback"]:
+                state["progress_callback"](agent_name, "error", {"error": str(e)})
             
             if "errors" not in state:
                 state["errors"] = []

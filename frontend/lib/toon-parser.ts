@@ -39,9 +39,6 @@ export function parseTOON(toonString: string): Record<string, string> {
 export function parseVulnerability(toonString: string): ParsedVulnerability {
   const data = parseTOON(toonString);
 
-  // Generate unique ID
-  const id = `vuln-${Math.random().toString(36).substr(2, 9)}`;
-
   // Extract line numbers if present
   let lineStart: number | undefined;
   let lineEnd: number | undefined;
@@ -50,6 +47,15 @@ export function parseVulnerability(toonString: string): ParsedVulnerability {
     lineStart = parseInt(lineParts[0], 10);
     lineEnd = lineParts.length > 1 ? parseInt(lineParts[1], 10) : lineStart;
   }
+
+  // Generate deterministic ID based on content
+  const idParts = [
+    'vuln',
+    data.file || 'unknown',
+    lineStart || '0',
+    data.category || 'unknown',
+  ].join('-').replace(/[^a-zA-Z0-9-]/g, '_');
+  const id = idParts;
 
   return {
     id,
@@ -84,9 +90,6 @@ export function parseVulnerability(toonString: string): ParsedVulnerability {
 export function parseSecret(toonString: string): ParsedVulnerability {
   const data = parseTOON(toonString);
 
-  // Generate unique ID
-  const id = `secret-${Math.random().toString(36).substr(2, 9)}`;
-
   // Extract line numbers if present
   let lineStart: number | undefined;
   let lineEnd: number | undefined;
@@ -95,6 +98,15 @@ export function parseSecret(toonString: string): ParsedVulnerability {
     lineStart = parseInt(lineParts[0], 10);
     lineEnd = lineParts.length > 1 ? parseInt(lineParts[1], 10) : lineStart;
   }
+
+  // Generate deterministic ID based on content
+  const idParts = [
+    'secret',
+    data.file || 'unknown',
+    lineStart || '0',
+    data.type || data.secret_type || 'unknown',
+  ].join('-').replace(/[^a-zA-Z0-9-]/g, '_');
+  const id = idParts;
 
   return {
     id,

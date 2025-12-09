@@ -14,23 +14,10 @@ export default function CodeViewer({ file, onMarkerClick, highlightedLine }: Cod
   const lines = file.content.split('\n');
 
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      {/* File Header */}
-      <div className="bg-gray-800 text-white px-6 py-3 flex items-center justify-between border-b border-gray-700">
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full bg-red-500" />
-          <div className="w-3 h-3 rounded-full bg-yellow-500" />
-          <div className="w-3 h-3 rounded-full bg-green-500" />
-        </div>
-        <span className="text-sm font-mono font-medium">{file.path}</span>
-        <div className="flex items-center gap-2">
-          {file.language && (
-            <span className="text-xs bg-gray-700 px-2 py-1 rounded">{file.language}</span>
-          )}
-          <span className="text-xs text-gray-400">
-            {file.vulnerabilities.length} issue{file.vulnerabilities.length !== 1 ? 's' : ''}
-          </span>
-        </div>
+    <div className="h-full flex flex-col bg-gray-900">
+      {/* Simple File Header */}
+      <div className="px-4 py-2 bg-gray-800 text-gray-300 text-sm font-mono">
+        {file.path}
       </div>
 
       {/* Code Content */}
@@ -44,12 +31,12 @@ export default function CodeViewer({ file, onMarkerClick, highlightedLine }: Cod
             return (
               <div
                 key={lineNumber}
-                className={`flex items-start group hover:bg-gray-100 transition-colors ${
-                  isHighlighted ? 'bg-yellow-50' : ''
+                className={`flex items-start group hover:bg-gray-800 transition-colors ${
+                  isHighlighted ? 'bg-gray-800' : ''
                 }`}
               >
                 {/* Line Number */}
-                <div className="flex-shrink-0 w-16 text-right pr-4 py-1 text-gray-500 select-none bg-gray-50 border-r border-gray-200">
+                <div className="flex-shrink-0 w-16 text-right pr-4 py-1 text-gray-500 select-none bg-gray-900 border-r border-gray-700">
                   {lineNumber}
                 </div>
 
@@ -65,20 +52,12 @@ export default function CodeViewer({ file, onMarkerClick, highlightedLine }: Cod
 
                 {/* Code Line */}
                 <pre className="flex-1 px-4 py-1 overflow-x-auto">
-                  <code className="text-gray-800">{line || ' '}</code>
+                  <code className="text-gray-200">{line || ' '}</code>
                 </pre>
               </div>
             );
           })}
         </div>
-      </div>
-
-      {/* Footer with stats */}
-      <div className="bg-gray-800 text-gray-400 px-6 py-2 text-xs flex items-center justify-between border-t border-gray-700">
-        <span>
-          {lines.length} line{lines.length !== 1 ? 's' : ''}
-        </span>
-        <span className="font-mono">{file.path.split('.').pop()?.toUpperCase()}</span>
       </div>
     </div>
   );

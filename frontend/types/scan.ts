@@ -90,6 +90,38 @@ export interface AgentStage {
   duration?: number;  // Estimated duration in ms
 }
 
+// Real-time scan progress types
+export interface AgentProgressSubItem {
+  text: string;
+  visible: boolean;
+  icon?: 'arrow' | 'check' | 'spinner';
+}
+
+export interface AgentProgress {
+  status: AgentStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  error?: string;
+  sub_items?: AgentProgressSubItem[];
+}
+
+export interface ScanProgress {
+  scan_id: string;
+  repo_url: string;
+  status: 'running' | 'completed' | 'error';
+  current_agent: string;
+  agents: {
+    orchestrator: AgentProgress;
+    code_scanner: AgentProgress;
+    secret_detector: AgentProgress;
+    context_enricher: AgentProgress;
+    remediation: AgentProgress;
+  };
+  started_at: string;
+  completed_at: string | null;
+  error?: string;
+}
+
 // Severity levels
 export type SeverityLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 

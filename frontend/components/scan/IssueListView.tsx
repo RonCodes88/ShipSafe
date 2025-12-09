@@ -44,58 +44,40 @@ export default function IssueListView({ issues, onIssueClick, selectedIssueId }:
         <button
           key={issue.id}
           onClick={() => onIssueClick(issue)}
-          className={`w-full text-left p-4 rounded-lg border transition-all ${
+          className={`w-full text-left p-3 rounded-lg border transition-all ${
             selectedIssueId === issue.id
-              ? 'bg-blue-50 border-blue-300 shadow-sm'
-              : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-sm'
+              ? 'bg-blue-50 border-blue-300'
+              : 'bg-white border-gray-200 hover:bg-gray-50'
           }`}
         >
-          <div className="flex items-start gap-3">
-            {/* Icon */}
-            <div className="mt-1">{getTypeIcon(issue.type)}</div>
+          {/* Severity Badge */}
+          <div className="mb-2">
+            {getSeverityBadge(issue.severity || 'MEDIUM')}
+          </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              {/* Header */}
-              <div className="flex items-center gap-2 mb-2">
-                {getSeverityBadge(issue.severity || 'MEDIUM')}
-                <span className="text-xs font-medium text-gray-500 uppercase">
-                  {issue.type === 'secret' ? issue.secretType || 'Secret' : issue.category}
-                </span>
-              </div>
+          {/* Title */}
+          <h3 className="font-semibold text-gray-900 mb-1">
+            {issue.type === 'secret' 
+              ? (issue.secretType || 'HARDCODED SECRET').toUpperCase()
+              : (issue.category || 'VULNERABILITY').toUpperCase()}
+          </h3>
 
-              {/* Description */}
-              <div className="text-sm text-gray-900 font-medium mb-2 line-clamp-2">
-                {issue.explanation || issue.raw?.summary || 'Security issue detected'}
-              </div>
+          {/* Description */}
+          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+            {issue.explanation || issue.raw?.summary || 'Security issue detected'}
+          </p>
 
-              {/* Location */}
-              <div className="flex items-center gap-4 text-xs text-gray-600">
-                {issue.file && (
-                  <div className="flex items-center gap-1">
-                    <FileCode className="w-3 h-3" />
-                    <span className="font-mono truncate max-w-[200px]" title={issue.file}>
-                      {issue.file}
-                    </span>
-                  </div>
-                )}
-                {issue.lineStart && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    <span className="font-mono">
-                      {issue.lineEnd && issue.lineEnd !== issue.lineStart
-                        ? `Lines ${issue.lineStart}-${issue.lineEnd}`
-                        : `Line ${issue.lineStart}`}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Arrow */}
-            <ChevronRight className={`w-5 h-5 flex-shrink-0 transition-colors ${
-              selectedIssueId === issue.id ? 'text-blue-600' : 'text-gray-400'
-            }`} />
+          {/* File Location */}
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <FileCode className="w-3 h-3" />
+            <span className="font-mono truncate" title={issue.file}>
+              {issue.file || 'unknown'}
+            </span>
+            {issue.lineStart && (
+              <span className="font-mono">
+                • L{issue.lineStart}{issue.lineEnd && issue.lineEnd !== issue.lineStart ? `-${issue.lineEnd}` : ''}
+              </span>
+            )}
           </div>
         </button>
       ))}

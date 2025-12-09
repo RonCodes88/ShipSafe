@@ -59,17 +59,17 @@ export default function ImprovedScanResultsLayout({
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <header className="bg-white border-b border-gray-200 px-6 py-5">
         <div className="max-w-[2000px] mx-auto">
           <button
             onClick={() => router.push('/repositories')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors mb-4"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors mb-5"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="font-medium">Back to Repositories</span>
           </button>
 
-          {/* Summary Card */}
+          {/* Summary */}
           <ScanSummaryCard scanData={scanData} />
         </div>
       </header>
