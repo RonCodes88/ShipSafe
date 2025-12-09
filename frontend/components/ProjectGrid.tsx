@@ -166,10 +166,10 @@ export function ProjectGrid() {
         {filtered.map((repo) => (
           <div
             key={repo.id}
-            className="group relative bg-white rounded-3xl border-2 border-gray-100 hover:border-gray-300 hover:shadow-2xl transition-all duration-300 overflow-hidden"
+            className="group relative bg-white rounded-3xl border-2 border-gray-100 hover:border-gray-300 hover:shadow-2xl transition-all duration-300 overflow-hidden flex flex-col"
           >
             {/* Card Header with Gradient */}
-            <div className="relative p-6 pb-4">
+            <div className="relative p-6 pb-4 flex-1 flex flex-col">
               {/* Status Indicator */}
               <div className="absolute top-4 right-4">
                 <div className={`w-3 h-3 rounded-full ${
@@ -249,7 +249,7 @@ export function ProjectGrid() {
             </div>
 
             {/* Card Footer with Actions */}
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-6 mt-auto">
               <div className="flex gap-2">
                 <a
                   href={repo.html_url}
@@ -263,7 +263,7 @@ export function ProjectGrid() {
                 <button
                   onClick={() => handleStartScan(repo)}
                   disabled={scanning === repo.id}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 px-4 bg-gray-900 hover:bg-gray-950 text-white rounded-xl font-medium transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {scanning === repo.id ? (
                     <>
