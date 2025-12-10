@@ -6,7 +6,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import { ScanData, ScanProgress } from '@/types/scan';
 import { startScan } from '@/lib/scan-client';
 import ScanLoadingScreen from '@/components/scan/ScanLoadingScreen';
-import ImprovedScanResultsLayout from '@/components/scan/ImprovedScanResultsLayout';
+import ScanResultsLayout from '@/components/scan/ScanResultsLayout';
 
 export default function ScanResultsPage() {
   const params = useParams();
@@ -173,7 +173,7 @@ export default function ScanResultsPage() {
 
   // Results state
   if (data) {
-    return <ImprovedScanResultsLayout scanData={data} onRescan={handleRescan} />;
+    return <ScanResultsLayout scanData={data} onRescan={handleRescan} />;
   }
 
   // Fallback
