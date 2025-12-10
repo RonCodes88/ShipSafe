@@ -79,7 +79,7 @@ export default function ScanResultsLayout({
         {hasIssues ? (
             <div className="h-full flex max-w-[2000px] mx-auto">
             {/* Left Sidebar - Issue List */}
-              <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
+              <div className="w-96 bg-white border-r border-gray-200 flex flex-col min-h-0">
               <div className="p-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Security Issues ({allIssues.length})
@@ -88,7 +88,7 @@ export default function ScanResultsLayout({
                   Click on an issue to view details and remediation
                 </p>
               </div>
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 <IssueListView
                   issues={allIssues}
                   onIssueClick={handleIssueClick}
@@ -98,7 +98,7 @@ export default function ScanResultsLayout({
             </div>
 
             {/* Right Side - Code Viewer */}
-            <div className="flex-1 bg-gray-50 overflow-hidden flex items-center justify-center">
+            <div className="flex-1 bg-gray-50 overflow-hidden flex items-start justify-center pt-12">
               {selectedIssue && selectedIssue.file ? (
                 <CodeViewer
                   file={{
