@@ -1,5 +1,10 @@
 # ShipSafe
-ShipSafe uses AI agents to scan your code, detect vulnerabilities, and generate automated fixes for you.
+ShipSafe is an multi-agent system that scans your code, detect vulnerabilities, and generate automated fixes for you.
+
+<img width="1431" height="890" alt="image" src="https://github.com/user-attachments/assets/c0026a95-85ec-4596-9ee7-032b7ebc8ca0" />
+
+## Demo
+[https://www.youtube.com/watch?v=BzTmxkDC3cU&feature=youtu.be](https://www.youtube.com/watch?v=BzTmxkDC3cU&feature=youtu.be)
 
 ## What It Does
 
