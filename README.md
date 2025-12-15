@@ -33,7 +33,7 @@ The entire pipeline runs automatically, giving you actionable security insights 
 ## Tech Stack
 
 - Frontend: Next.js, TypeScript, Tailwind CSS
-- Backend: Python, LangChain, LangGraph
+- Backend: Python, FastAPI, LangChain, LangGraph
 - AI Models: CodeBERT (vulnerability detection), OpenAI
 - Authentication: GitHub OAuth
 
